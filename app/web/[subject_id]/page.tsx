@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { LastSubjectTracker } from "@/components/web/LastSubjectTracker";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import WebProgress from "@/components/web/WebProgress";
@@ -115,6 +116,7 @@ export default function WebPage() {
       className="flex flex-col"
       style={{ height: "100vh", background: "var(--bg-primary)", paddingTop: "60px" }}
     >
+      <LastSubjectTracker subjectId={subjectId} />
       {/* Header bar */}
       <div
         className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"

@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, Menu } from "lucide-react";
+import { Settings, Menu, Bot } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import MobileNav from "./MobileNav";
+import { TutorAgentPanel } from "@/components/chat/TutorAgentPanel";
+import { useChatStore } from "@/stores/chatStore";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -13,6 +15,7 @@ const NAV_LINKS = [
   { href: "/study", label: "Study" },
   { href: "/web", label: "Web" },
   { href: "/review", label: "Review" },
+  { href: "/translate", label: "Translate" },
 ];
 
 function getDateline() {
@@ -27,6 +30,7 @@ function getDateline() {
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isOpen: tutorOpen, toggle: toggleTutor } = useChatStore();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]">
@@ -63,6 +67,18 @@ export function Navbar() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <button
+            onClick={toggleTutor}
+            className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors"
+            style={{
+              color: tutorOpen ? "var(--accent-primary)" : "var(--text-secondary)",
+              background: tutorOpen ? "rgba(212,168,67,0.1)" : "transparent",
+            }}
+            aria-label="Toggle tutor panel"
+          >
+            <Bot size={15} />
+            <span className="newspaper-label text-[10px]">TUTOR</span>
+          </button>
           <Link href="/settings" className="hidden md:flex items-center">
             <Settings
               size={16}
@@ -82,6 +98,7 @@ export function Navbar() {
       </div>
 
       <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <TutorAgentPanel />
 
       {/* Dateline */}
       <div className="px-6 pb-1">

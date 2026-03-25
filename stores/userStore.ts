@@ -9,6 +9,7 @@ export interface Subject {
   nodeCount: number;
   masteryPercent: number;
   lastStudied: string;
+  coverUrl?: string | null;
 }
 
 export interface UserStats {

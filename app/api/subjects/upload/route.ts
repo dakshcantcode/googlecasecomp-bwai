@@ -142,10 +142,24 @@ ${truncated ? `\nContent:\n${truncated}` : "(no parseable content — generate c
       await adminSupabase.from("concept_strands").insert(strandRows);
     }
 
-    // 9. Update node_count on subjects
+    // 9. Update node_count on subjects + fetch cover image from Unsplash
+    const keywords = subjectName.replace(/[_\-]/g, " ").trim();
+    let coverUrl: string | null = null;
+    if (process.env.UNSPLASH_ACCESS_KEY) {
+      try {
+        const unsplashRes = await fetch(
+          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(keywords)}&orientation=landscape&client_id=${process.env.UNSPLASH_ACCESS_KEY}`
+        );
+        if (unsplashRes.ok) {
+          const img = await unsplashRes.json();
+          coverUrl = img?.urls?.small ?? null;
+        }
+      } catch { /* non-fatal — card shows gradient fallback */ }
+    }
+
     await adminSupabase
       .from("subjects")
-      .update({ node_count: insertedNodes.length })
+      .update({ node_count: insertedNodes.length, ...(coverUrl ? { cover_url: coverUrl } : {}) })
       .eq("id", subject.id);
 
     // 10. Return result

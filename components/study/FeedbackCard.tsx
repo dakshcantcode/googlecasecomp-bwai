@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ErrorChip from "./ErrorChip";
 import KaTeXRenderer from "./KaTeXRenderer";
@@ -19,9 +19,10 @@ interface FeedbackCardProps {
   result: GradeResult;
   onNext: () => void;
   onRetry?: () => void;
+  onAskTutor?: () => void;
 }
 
-export default function FeedbackCard({ result, onNext, onRetry }: FeedbackCardProps) {
+export default function FeedbackCard({ result, onNext, onRetry, onAskTutor }: FeedbackCardProps) {
   const [hintOpen, setHintOpen] = useState(false);
   const meta = METACOGNITIVE_MSGS[Math.floor(Math.random() * METACOGNITIVE_MSGS.length)];
 
@@ -106,7 +107,7 @@ export default function FeedbackCard({ result, onNext, onRetry }: FeedbackCardPr
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 pt-1">
+      <div className="flex gap-3 pt-1 flex-wrap">
         {!result.correct && onRetry && (
           <Button variant="outline" size="sm" className="rounded-full" onClick={onRetry}>
             Try again
@@ -120,6 +121,17 @@ export default function FeedbackCard({ result, onNext, onRetry }: FeedbackCardPr
         >
           Next question
         </Button>
+        {onAskTutor && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-full gap-1.5 ml-auto text-xs"
+            style={{ color: "var(--text-secondary)" }}
+            onClick={onAskTutor}
+          >
+            <Bot size={13} /> Ask Tutor
+          </Button>
+        )}
       </div>
     </motion.div>
   );

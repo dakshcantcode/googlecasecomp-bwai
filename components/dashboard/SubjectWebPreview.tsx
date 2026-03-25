@@ -100,9 +100,24 @@ export default function SubjectWebPreview({ subject }: { subject: Subject }) {
           borderColor: "var(--border-default)",
         }}
       >
-        {/* Mini canvas */}
-        <div className="h-[100px] relative overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-          <MiniWebCanvas subjectId={subject.id} />
+        {/* Cover image / fallback gradient */}
+        <div className="h-[120px] relative overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+          {subject.coverUrl ? (
+            <img
+              src={subject.coverUrl}
+              alt={subject.name}
+              className="w-full h-full object-cover opacity-70"
+            />
+          ) : (
+            <div
+              className="w-full h-full"
+              style={{ background: "linear-gradient(135deg, var(--bg-secondary) 0%, rgba(212,168,67,0.15) 100%)" }}
+            />
+          )}
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(to top, var(--bg-secondary) 0%, transparent 60%)" }}
+          />
         </div>
 
         <div className="p-4">

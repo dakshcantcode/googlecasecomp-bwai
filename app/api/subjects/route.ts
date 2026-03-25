@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("subjects")
-    .select("id, name, node_count, created_at")
+    .select("id, name, node_count, created_at, cover_url")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -21,6 +21,7 @@ export async function GET() {
     nodeCount: s.node_count ?? 0,
     masteryPercent: 0,
     lastStudied: new Date(s.created_at).toLocaleDateString(),
+    coverUrl: s.cover_url ?? null,
   }));
 
   return Response.json(subjects);

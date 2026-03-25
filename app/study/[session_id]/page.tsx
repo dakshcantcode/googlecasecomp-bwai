@@ -12,6 +12,7 @@ import FlashRound from "@/components/study/FlashRound";
 import SessionSummary from "@/components/study/SessionSummary";
 import { startSession, gradeAnswer, getSessionSummary } from "@/lib/api";
 import { useFlashRound } from "@/hooks/useFlashRound";
+import { useChatStore } from "@/stores/chatStore";
 import type { Question, GradeResult, SessionSummaryData } from "@/lib/api";
 
 type Phase = "entry" | "question" | "flash" | "flash-result" | "feedback" | "summary";
@@ -41,6 +42,12 @@ export default function StudySessionPage() {
   const [starting, setStarting] = useState(false);
 
   const flash = useFlashRound(30);
+  const openWithContext = useChatStore((s) => s.openWithContext);
+
+  function buildTutorContext() {
+    const prompt = questions[currentIndex]?.prompt ?? "";
+    return `I just answered a question: "${prompt}". I got it ${lastResult?.correct ? "correct" : "wrong"}. The explanation was: "${lastResult?.explanation}". Please explain this in more detail.`;
+  }
 
   async function handleStart() {
     setStartError(null);
@@ -280,6 +287,7 @@ export default function StudySessionPage() {
                 result={lastResult}
                 onNext={flash.state.result === "pass" ? handleNext : handleFlashResultNext}
                 onRetry={undefined}
+                onAskTutor={() => openWithContext(buildTutorContext())}
               />
             )}
 
@@ -302,6 +310,7 @@ export default function StudySessionPage() {
               result={lastResult}
               onNext={handleNext}
               onRetry={() => { setLastResult(null); setPhase("question"); }}
+              onAskTutor={() => openWithContext(buildTutorContext())}
             />
           </motion.div>
         )}

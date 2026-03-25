@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { SpiderCursor } from "@/components/layout/SpiderCursor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/layout/AuthProvider";
+import { TutorLayoutWrapper } from "@/components/layout/TutorLayoutWrapper";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -58,7 +59,7 @@ export default function RootLayout({
             <TooltipProvider>
               <SpiderCursor />
               <Navbar />
-              <main className="pt-20">{children}</main>
+              <TutorLayoutWrapper>{children}</TutorLayoutWrapper>
             </TooltipProvider>
           </AuthProvider>
         </ThemeProvider>
