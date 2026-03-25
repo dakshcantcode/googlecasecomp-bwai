@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -10,21 +10,30 @@ import QuestionCard from "@/components/study/QuestionCard";
 import FeedbackCard from "@/components/study/FeedbackCard";
 import FlashRound from "@/components/study/FlashRound";
 import SessionSummary from "@/components/study/SessionSummary";
+import FormatSwitcher from "@/components/study/FormatSwitcher";
+import ZeigarnikBar from "@/components/study/ZeigarnikBar";
+import WorkedExample from "@/components/study/WorkedExample";
+import SimplifiedText from "@/components/study/SimplifiedText";
+import DetailedText from "@/components/study/DetailedText";
+import AudioWalkthrough from "@/components/study/AudioWalkthrough";
+import Simulation from "@/components/study/Simulation";
+import YouTubeClip from "@/components/study/YouTubeClip";
 import { startSession, gradeAnswer, getSessionSummary } from "@/lib/api";
 import { useFlashRound } from "@/hooks/useFlashRound";
 import { useChatStore } from "@/stores/chatStore";
+import { useFormatCascade } from "@/hooks/useFormatCascade";
+import { getConcept } from "@/lib/mockConcepts";
 import type { Question, GradeResult, SessionSummaryData } from "@/lib/api";
 
-type Phase = "entry" | "question" | "flash" | "flash-result" | "feedback" | "summary";
+type Phase = "entry" | "question" | "flash" | "flash-result" | "feedback" | "format" | "summary";
 
 const COUNT_OPTIONS = [3, 5, 10, 15];
 
-// Flash round triggers on question indices 2, 5, 8, … (every 3rd)
 function shouldTriggerFlash(index: number) {
   return index > 0 && index % 3 === 2;
 }
 
-export default function StudySessionPage() {
+function StudySessionInner() {
   const params = useParams();
   const searchParams = useSearchParams();
   const sessionId = params.session_id as string;
@@ -40,9 +49,11 @@ export default function StudySessionPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [answeredCount, setAnsweredCount] = useState(0);
 
   const flash = useFlashRound(30);
   const openWithContext = useChatStore((s) => s.openWithContext);
+  const { mode: formatMode, recordFail, resetForConcept } = useFormatCascade();
 
   function buildTutorContext() {
     const prompt = questions[currentIndex]?.prompt ?? "";
@@ -67,7 +78,7 @@ export default function StudySessionPage() {
     setActiveSessionId(data.sessionId);
     setQuestions(data.questions);
     setCurrentIndex(0);
-    // First question — check if it should flash immediately
+    resetForConcept();
     if (shouldTriggerFlash(0)) {
       flash.start();
       setPhase("flash");
@@ -80,7 +91,6 @@ export default function StudySessionPage() {
     if (!activeSessionId || submitting) return;
     setSubmitting(true);
 
-    // If this was a flash round submission, finish the flash
     if (phase === "flash") {
       flash.finish(true);
       setPhase("flash-result");
@@ -90,33 +100,48 @@ export default function StudySessionPage() {
 
     const result = await gradeAnswer(activeSessionId, questions[currentIndex].id, value);
     setLastResult(result);
+    setAnsweredCount((c) => c + 1);
+
+    if (!result.correct) {
+      recordFail();
+    }
+
     setPhase("feedback");
     setSubmitting(false);
   }
 
   async function handleFlashTimeout() {
-    // Time ran out — grade as wrong
     if (!activeSessionId) return;
     flash.finish(false);
     const result = await gradeAnswer(activeSessionId, questions[currentIndex].id, "");
     setLastResult(result);
+    setAnsweredCount((c) => c + 1);
     setPhase("flash-result");
   }
 
-  // Called after flash result screen is dismissed
   async function handleFlashResultNext() {
-    // Re-ask the same question normally (without flash pressure)
     flash.reset();
     setPhase("question");
   }
 
   function handleNext() {
+    // If format cascade triggered (mode != default) and last answer was wrong, show format view
+    if (formatMode !== "default" && lastResult && !lastResult.correct) {
+      setPhase("format");
+      return;
+    }
+
+    advanceToNext();
+  }
+
+  function advanceToNext() {
     const next = currentIndex + 1;
     if (next >= questions.length) {
       loadSummary();
     } else {
       setCurrentIndex(next);
       setLastResult(null);
+      resetForConcept();
       if (shouldTriggerFlash(next)) {
         flash.start();
         setPhase("flash");
@@ -126,8 +151,15 @@ export default function StudySessionPage() {
     }
   }
 
+  function handleFormatDone() {
+    // User finished the format view — retry same question
+    resetForConcept();
+    setLastResult(null);
+    setPhase("question");
+  }
+
   function handleSkip() {
-    handleNext();
+    advanceToNext();
   }
 
   async function loadSummary() {
@@ -136,11 +168,14 @@ export default function StudySessionPage() {
     setPhase("summary");
   }
 
-  // Auto-advance when flash timer hits 0
   const flashTimeLeft = flash.state.timeLeft;
   if (phase === "flash" && flashTimeLeft === 0 && !submitting) {
     handleFlashTimeout();
   }
+
+  // Current concept for format views
+  const currentConceptId = questions[currentIndex]?.conceptId ?? "chain-rule";
+  const currentConcept = getConcept(currentConceptId);
 
   return (
     <div
@@ -215,16 +250,18 @@ export default function StudySessionPage() {
 
         {/* ── Normal question ── */}
         {phase === "question" && questions[currentIndex] && (
-          <motion.div key={`q-${currentIndex}`} className="w-full">
-            <QuestionCard
-              question={questions[currentIndex]}
-              index={currentIndex}
-              total={questions.length}
-              onSubmit={handleSubmitAnswer}
-              onSkip={handleSkip}
-              disabled={submitting}
-              sessionId={activeSessionId ?? undefined}
-            />
+          <motion.div key={`q-${currentIndex}`} className="w-full max-w-2xl mx-auto">
+            <FormatSwitcher mode={formatMode}>
+              <QuestionCard
+                question={questions[currentIndex]}
+                index={currentIndex}
+                total={questions.length}
+                onSubmit={handleSubmitAnswer}
+                onSkip={handleSkip}
+                disabled={submitting}
+                sessionId={activeSessionId ?? undefined}
+              />
+            </FormatSwitcher>
           </motion.div>
         )}
 
@@ -285,7 +322,7 @@ export default function StudySessionPage() {
             {lastResult && (
               <FeedbackCard
                 result={lastResult}
-                onNext={flash.state.result === "pass" ? handleNext : handleFlashResultNext}
+                onNext={flash.state.result === "pass" ? advanceToNext : handleFlashResultNext}
                 onRetry={undefined}
                 onAskTutor={() => openWithContext(buildTutorContext())}
               />
@@ -295,7 +332,7 @@ export default function StudySessionPage() {
               <Button
                 className="w-full rounded-full"
                 style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
-                onClick={flash.state.result === "pass" ? handleNext : handleFlashResultNext}
+                onClick={flash.state.result === "pass" ? advanceToNext : handleFlashResultNext}
               >
                 {flash.state.result === "pass" ? "Next question" : "Retry without timer"}
               </Button>
@@ -315,6 +352,56 @@ export default function StudySessionPage() {
           </motion.div>
         )}
 
+        {/* ── Format view (cascade) ── */}
+        {phase === "format" && currentConcept && (
+          <motion.div
+            key={`format-${currentIndex}-${formatMode}`}
+            initial={{ opacity: 0, x: 32 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -32 }}
+            className="w-full max-w-2xl mx-auto"
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                Let's reinforce this concept before retrying:
+              </span>
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded"
+                style={{ background: "rgba(212,168,67,0.12)", color: "var(--accent-primary)", borderBottom: "2px solid var(--accent-primary)" }}
+              >
+                {formatMode === "worked-example" && "Worked Example"}
+                {formatMode === "simplified" && "Plain Language"}
+                {formatMode === "detailed" && "Detailed Derivation"}
+                {formatMode === "audio" && "Audio Walkthrough"}
+                {formatMode === "simulation" && "Simulation"}
+                {formatMode === "youtube" && "Video Clip"}
+              </span>
+            </div>
+
+            {formatMode === "worked-example" && (
+              <WorkedExample concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+            {formatMode === "simplified" && (
+              <SimplifiedText concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+            {formatMode === "detailed" && (
+              <DetailedText concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+            {formatMode === "audio" && (
+              <AudioWalkthrough concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+            {formatMode === "simulation" && (
+              <Simulation concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+            {formatMode === "youtube" && currentConcept.youtube_clip && (
+              <YouTubeClip concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+            {formatMode === "youtube" && !currentConcept.youtube_clip && (
+              <SimplifiedText concept={currentConcept} onTryQuestion={handleFormatDone} />
+            )}
+          </motion.div>
+        )}
+
         {/* ── Summary ── */}
         {phase === "summary" && summary && (
           <motion.div key="summary" className="w-full">
@@ -323,6 +410,27 @@ export default function StudySessionPage() {
         )}
 
       </AnimatePresence>
+
+      {/* Zeigarnik bar — appears after first answer */}
+      {phase !== "entry" && phase !== "summary" && (
+        <ZeigarnikBar
+          total={questions.length || questionCount}
+          completed={answeredCount}
+          visible={answeredCount > 0}
+        />
+      )}
     </div>
+  );
+}
+
+export default function StudySessionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-primary)" }}>
+        <p style={{ color: "var(--text-secondary)" }}>Loading session…</p>
+      </div>
+    }>
+      <StudySessionInner />
+    </Suspense>
   );
 }

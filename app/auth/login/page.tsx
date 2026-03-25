@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,22 +9,30 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useUserStore } from "@/stores/userStore";
 
+// Demo account for the trial
+const DEMO_ACCOUNTS = [
+  { name: "Human", email: "trial@123.com", password: "abcdefg" },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const { signIn, signInWithGoogle } = useUserStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setError("");
     setLoading(true);
     const err = await signIn(email, password);
     setLoading(false);
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     router.push("/dashboard");
   }
 
@@ -66,8 +74,9 @@ export default function LoginPage() {
               placeholder="you@university.edu"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              style={{ borderColor: error ? "rgba(248,113,113,0.6)" : "var(--border-default)" }}
+              autoComplete="email"
               required
-              style={{ borderColor: "var(--border-default)" }}
             />
           </div>
 
@@ -81,22 +90,26 @@ export default function LoginPage() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              style={{ borderColor: error ? "rgba(248,113,113,0.6)" : "var(--border-default)" }}
+              autoComplete="current-password"
               required
-              style={{ borderColor: "var(--border-default)" }}
             />
           </div>
 
           {error && (
-            <p className="text-xs text-red-500">{error}</p>
+            <p className="text-xs" style={{ color: "#F87171" }}>
+              {error}
+            </p>
           )}
 
           <Button
             type="submit"
-            disabled={loading}
+            disabled={loading || !email || !password}
             className="w-full font-semibold rounded-full"
             style={{
               background: "var(--accent-primary)",
               color: "#1A1A1A",
+              opacity: loading ? 0.7 : 1,
             }}
           >
             {loading ? "Signing in…" : "Sign In"}
@@ -136,6 +149,11 @@ export default function LoginPage() {
           >
             Sign up free
           </Link>
+        </p>
+
+        {/* Demo hint */}
+        <p className="text-center text-xs mt-4" style={{ color: "var(--text-tertiary)" }}>
+          Demo: <span style={{ color: "var(--text-secondary)" }}>trial@123.com</span> / <span style={{ color: "var(--text-secondary)" }}>abcdefg</span>
         </p>
       </div>
     </div>

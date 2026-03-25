@@ -32,18 +32,26 @@ export function useWebZoom(opts: UseWebZoomOptions = {}): UseWebZoomReturn {
   const [activeNode, setActiveNode] = useState<number | null>(null);
 
   const warpTriggered = useRef(false);
+  // Mirror zoom in a ref so handleWheel can read it without stale closures
+  const zoomRef = useRef(0);
 
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (isWarping) return;
 
-      e.preventDefault();
       const delta = e.deltaY * -0.003;
+
+      // Scrolling DOWN (delta < 0) while at zoom=0 and not warped:
+      // release the event so the page scrolls normally.
+      if (delta < 0 && zoomRef.current <= 0 && !hasReachedCenter) return;
+
+      e.preventDefault();
 
       if (hasReachedCenter) {
         if (delta < 0) {
           setHasReachedCenter(false);
           warpTriggered.current = false;
+          zoomRef.current = 0.7;
           setZoom(0.7);
         }
         return;
@@ -51,6 +59,7 @@ export function useWebZoom(opts: UseWebZoomOptions = {}): UseWebZoomReturn {
 
       setZoom((prev) => {
         const next = clamp(prev + delta, 0, 1);
+        zoomRef.current = next;
 
         if (next >= warpThreshold && !warpTriggered.current) {
           warpTriggered.current = true;
@@ -72,6 +81,7 @@ export function useWebZoom(opts: UseWebZoomOptions = {}): UseWebZoomReturn {
     setIsWarping(false);
     setActiveNode(null);
     warpTriggered.current = false;
+    zoomRef.current = 0;
     setZoom(0);
   }, []);
 

@@ -28,7 +28,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Co-Synapse — The Cognitive Co-Regulator for Exam Mastery",
+  title: "wewe",
   description:
     "An AI-powered exam preparation app that builds your knowledge web and adapts to how you learn.",
 };
