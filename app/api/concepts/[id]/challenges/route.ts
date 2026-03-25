@@ -12,9 +12,11 @@ export interface Challenge {
   timeMinutes: number;
   type: "recall" | "explain" | "apply";
   task: string;
+  options: string[];
+  correct_option_index: number;
   hint: string;
   xp: number;
-  answer_guide: string;
+  explanation: string;
 }
 
 export interface ChallengesResponse {
@@ -39,20 +41,23 @@ export async function GET(
 
   if (!concept) return Response.json({ error: "Concept not found" }, { status: 404 });
 
-  const prompt = `Generate 4-5 short interactive learning challenges for the concept: "${concept.label}".
+  const prompt = `Generate 6 fast-paced multiple choice challenges for the concept: "${concept.label}".
 Definition: ${concept.definition ?? "N/A"}
 
 Return a JSON object with a single key "challenges" containing an array. Each challenge must have:
 - "id": unique string like "c1", "c2", etc.
-- "title": short challenge title (4-6 words)
+- "title": short challenge title (3-6 words)
 - "timeMinutes": always 5
 - "type": one of "recall", "explain", or "apply"
-- "task": one-sentence question or prompt for the student
+- "task": one-sentence question for the student
+- "options": array of exactly 4 answer options (short, distinct)
+- "correct_option_index": integer 0-3
 - "hint": one short hint to help if stuck
-- "xp": integer between 10 and 30
-- "answer_guide": 2-3 sentence model answer the student can compare against
+- "xp": integer between 20 and 80
+- "explanation": 1-2 sentence explanation of why the correct option is right
 
-Make challenges progressively harder: start with recall, then explain, then apply.`;
+Make challenges progressively harder: first 2 recall, next 2 explain, last 2 apply.
+Do not include markdown. Return valid JSON only.`;
 
   let challenges: Challenge[] = [];
 
@@ -80,19 +85,58 @@ Make challenges progressively harder: start with recall, then explain, then appl
     }
   }
 
-  if (challenges.length === 0) {
+  // Normalize and validate model output.
+  const normalized = challenges
+    .map((c, index) => {
+      const options = Array.isArray(c.options) ? c.options.filter(Boolean).slice(0, 4) : [];
+      while (options.length < 4) {
+        options.push(`Option ${options.length + 1}`);
+      }
+      const idxRaw = Number(c.correct_option_index);
+      const correctIndex = Number.isFinite(idxRaw)
+        ? Math.min(3, Math.max(0, Math.floor(idxRaw)))
+        : 0;
+      const xp = Number.isFinite(Number(c.xp))
+        ? Math.min(120, Math.max(15, Math.floor(Number(c.xp))))
+        : 30;
+
+      return {
+        id: c.id || `c${index + 1}`,
+        title: c.title || `Challenge ${index + 1}`,
+        timeMinutes: 5,
+        type: (c.type === "recall" || c.type === "explain" || c.type === "apply") ? c.type : "recall",
+        task: c.task || `What best describes ${concept.label}?`,
+        options,
+        correct_option_index: correctIndex,
+        hint: c.hint || "Focus on the key definition first.",
+        xp,
+        explanation: c.explanation || concept.definition || "Review the concept notes and retry.",
+      } as Challenge;
+    })
+    .slice(0, 8);
+
+  if (normalized.length === 0) {
     challenges = [
       {
         id: "c1",
         title: `Define ${concept.label}`,
         timeMinutes: 5,
         type: "recall",
-        task: `In your own words, define "${concept.label}" without looking at your notes.`,
-        hint: "Think about the core purpose or function.",
-        xp: 10,
-        answer_guide: concept.definition ?? "Review your notes for the definition.",
+        task: `Which option best defines "${concept.label}"?`,
+        options: [
+          concept.definition ?? `A core idea within ${concept.label}`,
+          "An unrelated memorization trick",
+          "A social media study strategy",
+          "A type of file format",
+        ],
+        correct_option_index: 0,
+        hint: "Look for the option that describes what it is, not where it appears.",
+        xp: 25,
+        explanation: concept.definition ?? "Review your notes for the concept definition.",
       },
     ];
+  } else {
+    challenges = normalized;
   }
 
   return Response.json({ challenges });

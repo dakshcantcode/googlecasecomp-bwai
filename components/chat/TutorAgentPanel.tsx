@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronRight, ChevronDown, Bot } from "lucide-react";
+import { ChevronRight, ChevronDown, Bot, RefreshCcw } from "lucide-react";
 import { useChatStore } from "@/stores/chatStore";
 import type { ChatMessage } from "@/stores/chatStore";
 
@@ -144,7 +144,7 @@ function TutorMessageItem({ message }: { message: ChatMessage }) {
 // ── Panel ──────────────────────────────────────────────────────────────────
 
 export function TutorAgentPanel() {
-  const { messages, isOpen, isLoading, close, sendMessage, loadHistory } = useChatStore();
+  const { messages, isOpen, isLoading, close, sendMessage, loadHistory, startNewChat } = useChatStore();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyLoaded = useRef(false);
@@ -204,14 +204,25 @@ export function TutorAgentPanel() {
               />
             )}
           </div>
-          <button
-            onClick={close}
-            className="flex items-center justify-center w-6 h-6 rounded transition-opacity hover:opacity-70"
-            style={{ color: "var(--text-tertiary)" }}
-            aria-label="Close tutor panel"
-          >
-            <ChevronRight size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => void startNewChat()}
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] transition-opacity hover:opacity-70"
+              style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+              aria-label="Start a new chat"
+            >
+              <RefreshCcw size={11} />
+              NEW CHAT
+            </button>
+            <button
+              onClick={close}
+              className="flex items-center justify-center w-6 h-6 rounded transition-opacity hover:opacity-70"
+              style={{ color: "var(--text-tertiary)" }}
+              aria-label="Close tutor panel"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
         <div className="newspaper-rule" />
       </div>

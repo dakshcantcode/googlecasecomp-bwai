@@ -108,7 +108,7 @@ export default function ConceptWeb({
   const pos3DRef  = useRef<Map<string, Vec3>>(new Map());
   const gridRef   = useRef<Vec3[]>([]);
   // camZ: -800 (far) → -280 (close). Node Z is ±30 so viewZ is always ≥ 250 at closest zoom.
-  const camRef    = useRef({ rotX: 0.15, rotY: 0.25, camZ: -560 });
+  const camRef    = useRef({ rotX: 0.15, rotY: 0.25, camZ: -500 });
   const dragRef   = useRef<{ sx: number; sy: number; rotX: number; rotY: number } | null>(null);
   const rafRef    = useRef<number>(0);
   const timeRef   = useRef(0);

@@ -3,6 +3,12 @@ import { adminSupabase } from "@/lib/supabase/admin";
 import { getOrGenerateQuestions } from "@/lib/questionGenerator";
 import { NextRequest } from "next/server";
 
+const OBJECTIVE_TYPES = new Set(["multiple-choice", "numeric", "latex", "multi-step"]);
+
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -60,8 +66,36 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Question generation failed" }, { status: 500 });
   }
 
-  // Shuffle and trim to requested count
-  const shuffled = allQuestions.sort(() => Math.random() - 0.5).slice(0, questionCount);
+  // Build a balanced set: objective-first with some subjective variety.
+  const objective = shuffle(allQuestions.filter((q) => OBJECTIVE_TYPES.has(q.type)));
+  const subjective = shuffle(allQuestions.filter((q) => !OBJECTIVE_TYPES.has(q.type)));
+
+  const targetObjectiveCount = Math.min(
+    objective.length,
+    Math.max(1, Math.ceil(questionCount * 0.6))
+  );
+
+  const selected: typeof allQuestions = [];
+  selected.push(...objective.slice(0, targetObjectiveCount));
+  selected.push(...subjective.slice(0, Math.max(0, questionCount - selected.length)));
+
+  if (selected.length < questionCount) {
+    const usedIds = new Set(selected.map((q) => q.id));
+    const remainingObjective = objective.filter((q) => !usedIds.has(q.id));
+    const remainingSubjective = subjective.filter((q) => !usedIds.has(q.id));
+    const fill = [...remainingObjective, ...remainingSubjective].slice(0, questionCount - selected.length);
+    selected.push(...fill);
+  }
+
+  const shuffled = shuffle(selected).slice(0, questionCount);
+
+  // Keep the first question responsive/easy-to-submit by preferring objective first.
+  if (shuffled.length > 1 && !OBJECTIVE_TYPES.has(shuffled[0].type)) {
+    const objectiveIndex = shuffled.findIndex((q) => OBJECTIVE_TYPES.has(q.type));
+    if (objectiveIndex > 0) {
+      [shuffled[0], shuffled[objectiveIndex]] = [shuffled[objectiveIndex], shuffled[0]];
+    }
+  }
 
   // Snapshot mastery before session
   const masterySnapshot: Record<string, number> = {};

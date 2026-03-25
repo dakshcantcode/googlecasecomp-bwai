@@ -21,6 +21,7 @@ interface ChatStore {
   loadHistory: () => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
   clearMessages: () => void;
+  startNewChat: () => Promise<void>;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -32,6 +33,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   close: () => set({ isOpen: false }),
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
   clearMessages: () => set({ messages: [] }),
+  startNewChat: async () => {
+    set({ messages: [] });
+    try {
+      await fetch("/api/chat/history", { method: "DELETE" });
+    } catch {
+      // If server clear fails, we still keep local chat cleared for a fresh start
+    }
+  },
   openWithContext: (contextText: string) =>
     set((s) => ({
       isOpen: true,

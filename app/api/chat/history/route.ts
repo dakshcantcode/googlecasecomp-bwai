@@ -15,3 +15,22 @@ export async function GET() {
 
   return Response.json(messages ?? []);
 }
+
+export async function DELETE() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { error } = await adminSupabase
+    .from("chat_messages")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return Response.json({ ok: true });
+}

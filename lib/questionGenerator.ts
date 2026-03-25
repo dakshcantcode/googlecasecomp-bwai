@@ -97,9 +97,28 @@ For multiple-choice, "answer" is the 0-based index of the correct option as a st
   try {
     parsed = JSON.parse(completion.choices[0].message.content ?? "{}");
   } catch {
-    // If Groq returns garbage, fall back to a single free-text question
+    // If Groq returns garbage, fall back to a small mixed set (not all subjective)
     parsed = {
       "free-text": { prompt: `Explain the concept of "${label}" in your own words.` },
+      "multiple-choice": {
+        prompt: `Which option best describes ${label}?`,
+        choices: [
+          definition || `${label} is a core concept in this topic.`,
+          `${label} is unrelated to this subject.`,
+          `${label} is only a memorization trick.`,
+          `${label} is a file type.`,
+        ],
+        answer: "0",
+      },
+      "numeric": {
+        prompt: `Give a key numeric value associated with ${label} if applicable, otherwise enter 1.`,
+        answer: "1",
+        unit: "dimensionless",
+      },
+      "latex": {
+        prompt: `Write a symbolic expression relevant to ${label}.`,
+        answer: "x",
+      },
     };
   }
 
@@ -157,7 +176,15 @@ export async function getOrGenerateQuestions(
     .eq("concept_id", conceptId);
 
   if (existing && existing.length > 0) {
-    return (existing as DBQuestion[]).map((row) => dbRowToQuestion(row, label));
+    const mapped = (existing as DBQuestion[]).map((row) => dbRowToQuestion(row, label));
+    const hasObjective = mapped.some((q) =>
+      q.type === "multiple-choice" || q.type === "numeric" || q.type === "latex" || q.type === "multi-step"
+    );
+
+    if (hasObjective) return mapped;
+
+    // Legacy concepts may have only subjective questions; regenerate a balanced set.
+    return generateQuestionsForConcept(conceptId, label, definition);
   }
 
   return generateQuestionsForConcept(conceptId, label, definition);

@@ -7,6 +7,7 @@ import { SpiderCursor } from "@/components/layout/SpiderCursor";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/layout/AuthProvider";
 import { TutorLayoutWrapper } from "@/components/layout/TutorLayoutWrapper";
+import { GlobalPomodoroDock } from "@/components/layout/GlobalPomodoroDock";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -60,6 +61,7 @@ export default function RootLayout({
               <SpiderCursor />
               <Navbar />
               <TutorLayoutWrapper>{children}</TutorLayoutWrapper>
+              <GlobalPomodoroDock />
             </TooltipProvider>
           </AuthProvider>
         </ThemeProvider>

@@ -11,6 +11,7 @@ interface PomodoroRingProps {
   isPaused: boolean;
   onPause: () => void;
   onResume: () => void;
+  size?: "sm" | "lg";
 }
 
 function formatTime(seconds: number) {
@@ -27,8 +28,14 @@ export function PomodoroRing({
   isPaused,
   onPause,
   onResume,
+  size = "sm",
 }: PomodoroRingProps) {
-  const radius = 36;
+  const radius = size === "lg" ? 60 : 36;
+  const svgSize = size === "lg" ? 156 : 96;
+  const center = svgSize / 2;
+  const strokeWidth = size === "lg" ? 8 : 6;
+  const timeFontSize = size === "lg" ? 24 : 14;
+  const labelFontSize = size === "lg" ? 11 : 9;
   const circumference = 2 * Math.PI * radius;
   const progress = phase === "idle" ? 1 : timeLeft / totalSeconds;
   const strokeDashoffset = circumference * (1 - progress);
@@ -40,32 +47,32 @@ export function PomodoroRing({
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg width="96" height="96" viewBox="0 0 96 96">
+      <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
         {/* Track */}
         <circle
-          cx="48" cy="48" r={radius}
+          cx={center} cy={center} r={radius}
           fill="none"
           stroke="var(--border-default)"
-          strokeWidth="6"
+          strokeWidth={strokeWidth}
         />
         {/* Progress */}
         <circle
-          cx="48" cy="48" r={radius}
+          cx={center} cy={center} r={radius}
           fill="none"
           stroke={strokeColor}
-          strokeWidth="6"
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          transform="rotate(-90 48 48)"
+          transform={`rotate(-90 ${center} ${center})`}
           style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s" }}
         />
         {/* Time */}
         <text
-          x="48" y="44"
+          x={center} y={center - (size === "lg" ? 8 : 4)}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize="14"
+          fontSize={timeFontSize}
           fontWeight="600"
           fill="var(--text-primary)"
           fontFamily="var(--font-mono), monospace"
@@ -74,10 +81,10 @@ export function PomodoroRing({
         </text>
         {/* Phase label */}
         <text
-          x="48" y="60"
+          x={center} y={center + (size === "lg" ? 16 : 12)}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize="9"
+          fontSize={labelFontSize}
           fill={strokeColor}
           fontWeight="700"
           letterSpacing="1"
@@ -89,11 +96,11 @@ export function PomodoroRing({
       {phase !== "idle" && (
         <button
           onClick={isPaused ? onResume : onPause}
-          className="flex items-center justify-center w-7 h-7 rounded-full transition-opacity hover:opacity-70"
+          className={`flex items-center justify-center rounded-full transition-opacity hover:opacity-70 ${size === "lg" ? "w-10 h-10" : "w-7 h-7"}`}
           style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
           aria-label={isPaused ? "Resume timer" : "Pause timer"}
         >
-          {isPaused ? <Play size={12} /> : <Pause size={12} />}
+          {isPaused ? <Play size={size === "lg" ? 16 : 12} /> : <Pause size={size === "lg" ? 16 : 12} />}
         </button>
       )}
 

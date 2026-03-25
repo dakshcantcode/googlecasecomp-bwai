@@ -11,6 +11,8 @@ interface TeachbackPromptProps {
   onSubmit: (text: string) => void;
 }
 
+const MIN_TEACHBACK_CHARS = 40;
+
 export default function TeachbackPrompt({ conceptLabel, sessionId, conceptId, onSubmit }: TeachbackPromptProps) {
   const [text, setText] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -20,7 +22,7 @@ export default function TeachbackPrompt({ conceptLabel, sessionId, conceptId, on
   const feedbackRef = useRef("");
 
   async function handleSubmit() {
-    if (text.length < 100 || streaming) return;
+    if (text.length < MIN_TEACHBACK_CHARS || streaming) return;
     setStreaming(true);
     setFeedback("");
     setDone(false);
@@ -90,19 +92,19 @@ export default function TeachbackPrompt({ conceptLabel, sessionId, conceptId, on
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Type your explanation here (min 100 chars)…"
+        placeholder={`Type your explanation here (min ${MIN_TEACHBACK_CHARS} chars)…`}
         rows={6}
         disabled={streaming || done}
         className="resize-none"
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-xs" style={{ color: text.length >= 100 ? "var(--accent-primary)" : "var(--text-tertiary)" }}>
-          {text.length} / 100 chars
+        <span className="text-xs" style={{ color: text.length >= MIN_TEACHBACK_CHARS ? "var(--accent-primary)" : "var(--text-tertiary)" }}>
+          {text.length} / {MIN_TEACHBACK_CHARS} chars
         </span>
         <Button
           onClick={handleSubmit}
-          disabled={text.length < 100 || streaming || done}
+          disabled={text.length < MIN_TEACHBACK_CHARS || streaming || done}
           className="rounded-full px-5"
           style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
         >
