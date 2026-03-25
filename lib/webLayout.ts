@@ -44,7 +44,7 @@ export function tickLayout(
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const restLen = 120;
+    const restLen = 180;
     const stretch = dist - restLen;
     const fx = ATTRACTION * stretch * (dx / dist);
     const fy = ATTRACTION * stretch * (dy / dist);
@@ -83,7 +83,7 @@ export function initLayout(
 
   return nodeIds.map((id, i) => {
     const deg = degree.get(id) ?? 1;
-    const radius = 60 + ((maxDeg - deg) / maxDeg) * 280;
+    const radius = 90 + ((maxDeg - deg) / maxDeg) * 0;
     const angle = (i / nodeIds.length) * Math.PI * 2 + Math.random() * 0.3;
     return {
       id,

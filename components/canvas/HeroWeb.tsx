@@ -104,12 +104,12 @@ function buildSpiderWeb(
 
   for (let r = 1; r <= rings; r++) {
     const rLayer: WebNode[] = [];
-    const radius = r * 55 + (Math.random() - 0.5) * 8;
+    const radius = r * 120 + (Math.random() - 0.5) * 10;
 
     for (let s = 0; s < spokes; s++) {
       const angle =
         (s / spokes) * Math.PI * 2 + (Math.random() - 0.5) * 0.08;
-      const zDepth = (Math.random() - 0.5) * 40;
+      const zDepth = (Math.random() - 0.5) * 60;
       const node: WebNode = {
         pos: {
           x: Math.cos(angle) * radius + (Math.random() - 0.5) * 6,
@@ -183,6 +183,7 @@ export default function HeroWeb({ onCinematicChange }: HeroWebProps) {
   const animFrameRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
   const warpProgressRef = useRef<number>(0);
+  const rotYAccumRef = useRef<number>(0); // accumulated rotation angle for smooth pulsation
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const nodePositionsRef = useRef<{ x: number; y: number }[]>([]);
   const hoverExitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -607,15 +608,19 @@ export default function HeroWeb({ onCinematicChange }: HeroWebProps) {
 
     let currentZoom = 0;
     let postGlowExpand = 1;
-    let cameraZPos = -320;
+    let cameraZPos = -440;
     let parallaxX = 0;
     let parallaxY = 0;
     let autoTriggered = false;
+    let lastTs = 0;
 
-    function animate() {
-      const time = (timeRef.current += 0.016);
+    function animate(ts: number) {
+      const dt = lastTs > 0 ? Math.min((ts - lastTs) / 1000, 0.05) : 0.016;
+      lastTs = ts;
+      timeRef.current += dt;
+      const time = timeRef.current;
 
-      currentZoom = lerp(currentZoom, zoomRef.current, 0.08);
+      currentZoom = lerp(currentZoom, zoomRef.current, 0.10);
 
       if (isWarpingRef.current) {
         warpProgressRef.current = lerp(warpProgressRef.current, 1, 0.025); // slower: 0.04→0.025
@@ -648,19 +653,19 @@ export default function HeroWeb({ onCinematicChange }: HeroWebProps) {
 
       const cx = width / 2;
       const cy = height / 2;
-      const focalLength = 350;
-      const maxFogDist = 1100;
+      const focalLength = 420;
+      const maxFogDist = 1600;
 
-      // Camera Z (unchanged from NeuroSketch)
+      // Camera Z — larger range for the bigger geometry
       let targetCamZ: number;
       if (isWarpingRef.current) {
-        targetCamZ = 600;
+        targetCamZ = 700;
       } else if (hasReachedCenterRef.current) {
         targetCamZ = 0;
       } else {
-        targetCamZ = -320 + currentZoom * 376;
+        targetCamZ = -440 + currentZoom * 500;
       }
-      const camLerp = isWarpingRef.current ? 0.035 : 0.06;
+      const camLerp = isWarpingRef.current ? 0.04 : 0.08;
       cameraZPos = lerp(cameraZPos, targetCamZ, camLerp);
 
       // Camera rotation (unchanged from NeuroSketch)
@@ -676,9 +681,13 @@ export default function HeroWeb({ onCinematicChange }: HeroWebProps) {
         rotXAngle = parallaxY;
       } else {
         const rotDampen = Math.max(0, 1 - currentZoom * 1.4);
-        const rotSpeed = 0.15 * rotDampen;
-        rotY = time * rotSpeed;
-        rotXAngle = Math.sin(time * 0.1) * 0.15 * rotDampen;
+        // Breathing rotation — speed pulses on a slow sine wave so the web feels alive
+        const breathe = 0.5 + 0.5 * Math.sin(time * 0.28);
+        const rotSpeed = (0.035 + 0.085 * breathe) * rotDampen * dt;
+        rotYAccumRef.current += rotSpeed;
+        rotY = rotYAccumRef.current;
+        // Tilt also breathes on a different frequency
+        rotXAngle = Math.sin(time * 0.17) * 0.22 * rotDampen;
       }
 
       renderWarpLines(cx, cy, warpFactor, time);
@@ -773,7 +782,10 @@ export default function HeroWeb({ onCinematicChange }: HeroWebProps) {
         }
 
         nodePositionsRef.current = positions;
-        setNodePositions([...positions]);
+        // Only trigger React re-render when a node is actually hovered (not every frame)
+        if (hoveredNodeRef.current !== null) {
+          setNodePositions([...positions]);
+        }
       }
 
       // Gold vignette during warp (instead of white flash)
@@ -789,7 +801,7 @@ export default function HeroWeb({ onCinematicChange }: HeroWebProps) {
       animFrameRef.current = requestAnimationFrame(animate);
     }
 
-    animFrameRef.current = requestAnimationFrame(animate);
+    animFrameRef.current = requestAnimationFrame((ts) => animate(ts));
 
     return () => {
       cancelAnimationFrame(animFrameRef.current);

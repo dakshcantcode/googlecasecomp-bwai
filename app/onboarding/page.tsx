@@ -19,11 +19,21 @@ const STEP_TITLES = [
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+const QUICK_PICKS = [
+  { label: "☕ Morning coffee", time: "07:30", description: "If it's morning and I'm having coffee, I'll review one concept." },
+  { label: "📚 After last class", time: "16:00", description: "If I've just finished my last lecture, I'll do a 10-minute session." },
+  { label: "🌙 Before sleep", time: "22:00", description: "If I'm about to sleep, I'll do a quick retrieval round first." },
+  { label: "🏋️ After workout", time: "09:00", description: "If I finish my workout, I'll study for 20 minutes while the mind is clear." },
+  { label: "🚌 Commute time", time: "08:15", description: "If I'm on transit, I'll answer one daily question." },
+  { label: "🍽️ After lunch", time: "13:00", description: "If it's after lunch, I'll spend 15 minutes on review." },
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(0);
   const [studyTime, setStudyTime] = useState("18:00");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Mon", "Wed", "Fri"]);
+  const [selectedQuickPick, setSelectedQuickPick] = useState<number | null>(null);
   const [topic, setTopic] = useState("");
 
   function next() {
@@ -35,6 +45,11 @@ export default function OnboardingPage() {
     setSelectedDays((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
     );
+  }
+
+  function selectQuickPick(i: number) {
+    setSelectedQuickPick(i);
+    setStudyTime(QUICK_PICKS[i].time);
   }
 
   return (
@@ -95,23 +110,60 @@ export default function OnboardingPage() {
 
             {/* ── Step 1: Study anchor ── */}
             {step === 1 && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                  When do you study? We'll send reminders and schedule reviews around your anchor.
+                  Pick a moment that already exists in your routine. We'll build your review schedule around it.
                 </p>
 
+                {/* Quick picks */}
                 <div>
                   <Label className="text-xs uppercase tracking-wider mb-2 block" style={{ color: "var(--text-tertiary)" }}>
-                    Time
+                    Quick picks (if–then anchors)
                   </Label>
-                  <Input
-                    type="time"
-                    value={studyTime}
-                    onChange={(e) => setStudyTime(e.target.value)}
-                    className="max-w-[160px]"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    {QUICK_PICKS.map((pick, i) => (
+                      <button
+                        key={i}
+                        className="rounded-lg px-3 py-2.5 text-left border transition-colors text-xs"
+                        style={{
+                          background: selectedQuickPick === i ? "rgba(212,168,67,0.1)" : "var(--bg-secondary)",
+                          borderColor: selectedQuickPick === i ? "var(--accent-primary)" : "var(--border-default)",
+                          color: selectedQuickPick === i ? "var(--text-primary)" : "var(--text-secondary)",
+                        }}
+                        onClick={() => selectQuickPick(i)}
+                      >
+                        <span className="font-medium">{pick.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedQuickPick !== null && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs mt-2 italic px-1"
+                      style={{ color: "var(--text-tertiary)" }}
+                    >
+                      "{QUICK_PICKS[selectedQuickPick].description}"
+                    </motion.p>
+                  )}
                 </div>
 
+                {/* Manual time */}
+                <div className="flex items-end gap-4">
+                  <div className="flex-1">
+                    <Label className="text-xs uppercase tracking-wider mb-1.5 block" style={{ color: "var(--text-tertiary)" }}>
+                      Custom time
+                    </Label>
+                    <Input
+                      type="time"
+                      value={studyTime}
+                      onChange={(e) => { setStudyTime(e.target.value); setSelectedQuickPick(null); }}
+                      className="max-w-[160px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Days */}
                 <div>
                   <Label className="text-xs uppercase tracking-wider mb-2 block" style={{ color: "var(--text-tertiary)" }}>
                     Days
@@ -173,13 +225,11 @@ export default function OnboardingPage() {
                   Here's how your concept web works. Click a node to study it. Hover to see mastery. Scroll to see the whole web.
                 </p>
 
-                {/* Animated mini web illustration */}
                 <div
                   className="rounded-lg border overflow-hidden"
                   style={{ background: "var(--bg-secondary)", borderColor: "var(--border-default)", height: 160 }}
                 >
                   <svg width="100%" height="160" viewBox="0 0 300 160">
-                    {/* Simple demo lines */}
                     <line x1="150" y1="80" x2="80" y2="40" stroke="rgba(212,168,67,0.4)" strokeWidth="1" />
                     <line x1="150" y1="80" x2="220" y2="40" stroke="rgba(212,168,67,0.4)" strokeWidth="1" />
                     <line x1="150" y1="80" x2="80" y2="120" stroke="rgba(212,168,67,0.4)" strokeWidth="1" />
