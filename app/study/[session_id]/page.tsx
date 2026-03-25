@@ -37,11 +37,26 @@ export default function StudySessionPage() {
   const [summary, setSummary] = useState<SessionSummaryData | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const flash = useFlashRound(30);
 
   async function handleStart() {
-    const data = await startSession([], questionCount);
+    setStartError(null);
+    setStarting(true);
+    const conceptId = searchParams.get("concept");
+    const data = await startSession(conceptId ? [conceptId] : [], questionCount);
+    setStarting(false);
+
+    if (!data.questions || data.questions.length === 0) {
+      setStartError(
+        (data as { error?: string }).error ??
+          "Could not load questions. Make sure you have study materials uploaded."
+      );
+      return;
+    }
+
     setActiveSessionId(data.sessionId);
     setQuestions(data.questions);
     setCurrentIndex(0);
@@ -175,13 +190,18 @@ export default function StudySessionPage() {
               ⚡ Every 3rd question is a <strong style={{ color: "var(--accent-primary)" }}>flash round</strong> — answer under a 30s timer with distractions active.
             </div>
 
+            {startError && (
+              <p className="text-sm text-red-500">{startError}</p>
+            )}
+
             <Button
               size="lg"
+              disabled={starting}
               className="w-full rounded-full text-base font-semibold"
               style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
               onClick={handleStart}
             >
-              Start session
+              {starting ? "Preparing questions…" : "Start session"}
             </Button>
           </motion.div>
         )}
@@ -196,6 +216,7 @@ export default function StudySessionPage() {
               onSubmit={handleSubmitAnswer}
               onSkip={handleSkip}
               disabled={submitting}
+              sessionId={activeSessionId ?? undefined}
             />
           </motion.div>
         )}

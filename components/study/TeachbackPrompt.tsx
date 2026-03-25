@@ -6,42 +6,76 @@ import { Button } from "@/components/ui/button";
 
 interface TeachbackPromptProps {
   conceptLabel: string;
-  onApproved: () => void;
+  sessionId: string;
+  conceptId: string;
+  onSubmit: (text: string) => void;
 }
 
-export default function TeachbackPrompt({ conceptLabel, onApproved }: TeachbackPromptProps) {
+export default function TeachbackPrompt({ conceptLabel, sessionId, conceptId, onSubmit }: TeachbackPromptProps) {
   const [text, setText] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [approved, setApproved] = useState(false);
+  const [done, setDone] = useState(false);
   const feedbackRef = useRef("");
 
   async function handleSubmit() {
     if (text.length < 100 || streaming) return;
     setStreaming(true);
     setFeedback("");
+    setDone(false);
     feedbackRef.current = "";
 
-    // Mock streaming — real implementation would use ReadableStream from /api/session/:id/teachback
-    const mockTokens = [
-      "Good start. ",
-      "You've captured the main idea ",
-      "that the chain rule applies to composite functions. ",
-      "Your example is helpful. ",
-      "One nuance: remember that the outer function is evaluated at g(x), not x. ",
-      "Overall — concept mastered.",
-    ];
+    try {
+      const res = await fetch(`/api/session/${sessionId}/teachback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, conceptId }),
+      });
 
-    for (const token of mockTokens) {
-      await new Promise((r) => setTimeout(r, 180));
-      feedbackRef.current += token;
-      setFeedback(feedbackRef.current);
+      if (!res.ok || !res.body) {
+        setStreaming(false);
+        // Fall through to grade without streaming feedback
+        onSubmit(text);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done: readerDone, value } = await reader.read();
+        if (readerDone) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const { token } = JSON.parse(payload);
+            feedbackRef.current += token;
+            setFeedback(feedbackRef.current);
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+    } catch {
+      // Network error — grade without streaming feedback
+      setStreaming(false);
+      onSubmit(text);
+      return;
     }
 
     setStreaming(false);
-    const wasApproved = feedbackRef.current.includes("mastered");
+    setDone(true);
+    const wasApproved = feedbackRef.current.toLowerCase().includes("mastered");
     setApproved(wasApproved);
-    if (wasApproved) setTimeout(onApproved, 1200);
+    // Always submit for grading regardless of approval
+    onSubmit(text);
+    if (wasApproved) {
+      // onSubmit will trigger navigation; no extra action needed
+    }
   }
 
   return (
@@ -58,7 +92,7 @@ export default function TeachbackPrompt({ conceptLabel, onApproved }: TeachbackP
         onChange={(e) => setText(e.target.value)}
         placeholder="Type your explanation here (min 100 chars)…"
         rows={6}
-        disabled={streaming}
+        disabled={streaming || done}
         className="resize-none"
       />
 
@@ -68,7 +102,7 @@ export default function TeachbackPrompt({ conceptLabel, onApproved }: TeachbackP
         </span>
         <Button
           onClick={handleSubmit}
-          disabled={text.length < 100 || streaming}
+          disabled={text.length < 100 || streaming || done}
           className="rounded-full px-5"
           style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
         >
@@ -87,16 +121,6 @@ export default function TeachbackPrompt({ conceptLabel, onApproved }: TeachbackP
         >
           {approved && <p className="font-semibold mb-1" style={{ color: "#4ADE80" }}>Concept mastered ✓</p>}
           <p>{feedback}</p>
-          {!streaming && !approved && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => { setFeedback(""); setApproved(false); }}
-            >
-              Revise explanation
-            </Button>
-          )}
         </div>
       )}
     </div>

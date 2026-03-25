@@ -12,6 +12,7 @@ interface QuestionCardProps {
   onSubmit: (value: string) => void;
   onSkip: () => void;
   disabled?: boolean;
+  sessionId?: string;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -23,7 +24,7 @@ const TYPE_LABELS: Record<string, string> = {
   teachback: "Teachback",
 };
 
-export default function QuestionCard({ question, index, total, onSubmit, onSkip, disabled }: QuestionCardProps) {
+export default function QuestionCard({ question, index, total, onSubmit, onSkip, disabled, sessionId }: QuestionCardProps) {
   return (
     <motion.div
       key={question.id}
@@ -74,7 +75,7 @@ export default function QuestionCard({ question, index, total, onSubmit, onSkip,
           </p>
         </div>
 
-        <AnswerInput question={question} onSubmit={onSubmit} disabled={disabled} />
+        <AnswerInput question={question} onSubmit={onSubmit} disabled={disabled} sessionId={sessionId} />
 
         <div className="flex justify-end">
           <button

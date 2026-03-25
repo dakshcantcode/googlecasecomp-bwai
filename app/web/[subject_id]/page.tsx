@@ -2,12 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import WebProgress from "@/components/web/WebProgress";
+import ConceptDetailPanel from "@/components/web/ConceptDetailPanel";
 import { MOCK_SUBJECTS } from "@/lib/mockSubjects";
-import type { ConceptNode } from "@/stores/webStore";
+import { startSession } from "@/lib/api";
+import type { ConceptNode, ConceptStrand } from "@/stores/webStore";
 
 const ConceptWeb = dynamic(() => import("@/components/web/ConceptWeb"), {
   ssr: false,
@@ -18,31 +20,95 @@ const ConceptWeb = dynamic(() => import("@/components/web/ConceptWeb"), {
   ),
 });
 
+interface SubjectGraph {
+  name?: string;
+  nodes: ConceptNode[];
+  strands: ConceptStrand[];
+}
+
 export default function WebPage() {
   const params = useParams();
   const router = useRouter();
   const subjectId = params.subject_id as string;
 
-  const graph = useMemo(() => MOCK_SUBJECTS[subjectId] ?? null, [subjectId]);
+  const [graph, setGraph] = useState<SubjectGraph | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [subjectName, setSubjectName] = useState("");
+  const [selectedNode, setSelectedNode] = useState<ConceptNode | null>(null);
+
+  function fetchGraph() {
+    return fetch(`/api/subjects/${subjectId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error && Array.isArray(data.nodes)) {
+          setGraph(data as SubjectGraph);
+          if (data.name) setSubjectName(data.name);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    // Try mock data first (for legacy slug IDs like "calculus")
+    const mock = MOCK_SUBJECTS[subjectId];
+    if (mock) {
+      setGraph(mock);
+      setSubjectName(
+        subjectId.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+      );
+      setLoading(false);
+      return;
+    }
+    fetchGraph();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjectId]);
+
+  // Set fallback subject name
+  useEffect(() => {
+    if (!subjectName && graph) setSubjectName("Concept Web");
+  }, [graph, subjectName]);
+
+  // Auto-unlock if ALL nodes are locked (existing data from before the fix)
+  useEffect(() => {
+    if (
+      graph &&
+      graph.nodes.length > 0 &&
+      graph.nodes.every((n) => n.state === "locked")
+    ) {
+      fetch(`/api/subjects/${subjectId}/unlock`, { method: "POST" })
+        .then(() => fetchGraph())
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph?.nodes.length]);
 
   function handleNodeClick(node: ConceptNode) {
-    if (node.state !== "locked") {
-      router.push(`/study/mock-session?concept=${node.id}&subject=${subjectId}`);
+    setSelectedNode(node);
+  }
+
+  async function handleStudyAll() {
+    const data = await startSession([], 10);
+    if (data.sessionId) {
+      router.push(`/study/${data.sessionId}?subject=${subjectId}`);
     }
   }
 
-  if (!graph) {
+  if (!loading && !graph) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-primary)" }}>
-        <p style={{ color: "var(--text-secondary)" }}>Subject not found.</p>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-4"
+        style={{ background: "var(--bg-primary)" }}
+      >
+        <p style={{ color: "var(--text-secondary)" }}>
+          Subject not found or you don&apos;t have access.
+        </p>
+        <Button variant="ghost" onClick={() => router.push("/dashboard")}>
+          Back to dashboard
+        </Button>
       </div>
     );
   }
-
-  const subjectName = subjectId
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 
   return (
     <div
@@ -65,19 +131,42 @@ export default function WebPage() {
           Dashboard
         </Button>
         <span className="newspaper-label">{subjectName}</span>
+        <Button
+          size="sm"
+          className="ml-auto rounded-full text-xs"
+          style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
+          onClick={handleStudyAll}
+        >
+          Start studying
+        </Button>
       </div>
 
       {/* Progress bar */}
-      <WebProgress nodes={graph.nodes} />
+      {graph && <WebProgress nodes={graph.nodes} />}
 
-      {/* Canvas — fills remaining space */}
+      {/* Canvas + Detail panel */}
       <div className="flex-1 relative overflow-hidden">
-        <ConceptWeb
-          nodes={graph.nodes}
-          strands={graph.strands}
-          spiderNodeId={null}
-          onNodeClick={handleNodeClick}
-        />
+        {loading ? (
+          <div className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}>
+            Building web…
+          </div>
+        ) : graph ? (
+          <>
+            <ConceptWeb
+              nodes={graph.nodes}
+              strands={graph.strands}
+              spiderNodeId={null}
+              onNodeClick={handleNodeClick}
+            />
+            {selectedNode && (
+              <ConceptDetailPanel
+                node={selectedNode}
+                subjectId={subjectId}
+                onClose={() => setSelectedNode(null)}
+              />
+            )}
+          </>
+        ) : null}
       </div>
 
       {/* Legend */}
@@ -96,7 +185,7 @@ export default function WebPage() {
             {label}
           </div>
         ))}
-        <span className="ml-auto">Scroll to zoom · Drag to pan · Click to study</span>
+        <span className="ml-auto">Click any node to explore · Scroll to zoom</span>
       </div>
     </div>
   );

@@ -1,10 +1,34 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useUserStore } from "@/stores/userStore";
 
 export default function SignupPage() {
+  const router = useRouter();
+  const { signUp, signInWithGoogle } = useUserStore();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const err = await signUp(name, email, password);
+    setLoading(false);
+    if (err) { setError(err); return; }
+    router.push("/dashboard");
+  }
+
   return (
     <div
       className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4"
@@ -32,7 +56,7 @@ export default function SignupPage() {
         <div className="newspaper-rule mb-8" />
 
         {/* Form */}
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
             <Label htmlFor="name" className="newspaper-label">
               Name
@@ -41,6 +65,9 @@ export default function SignupPage() {
               id="name"
               type="text"
               placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
               style={{ borderColor: "var(--border-default)" }}
             />
           </div>
@@ -53,6 +80,9 @@ export default function SignupPage() {
               id="email"
               type="email"
               placeholder="you@university.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
               style={{ borderColor: "var(--border-default)" }}
             />
           </div>
@@ -65,19 +95,27 @@ export default function SignupPage() {
               id="password"
               type="password"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
               style={{ borderColor: "var(--border-default)" }}
             />
           </div>
 
+          {error && (
+            <p className="text-xs text-red-500">{error}</p>
+          )}
+
           <Button
             type="submit"
+            disabled={loading}
             className="w-full font-semibold rounded-full"
             style={{
               background: "var(--accent-primary)",
               color: "#1A1A1A",
             }}
           >
-            Create Account
+            {loading ? "Creating account…" : "Create Account"}
           </Button>
         </form>
 
@@ -91,6 +129,7 @@ export default function SignupPage() {
           variant="outline"
           className="w-full rounded-full"
           style={{ borderColor: "var(--border-default)" }}
+          onClick={signInWithGoogle}
         >
           <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
             <path

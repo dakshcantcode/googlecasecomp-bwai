@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { SpiderCursor } from "@/components/layout/SpiderCursor";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/components/layout/AuthProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -53,11 +54,13 @@ export default function RootLayout({
         style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
       >
         <ThemeProvider>
-          <TooltipProvider>
-            <SpiderCursor />
-            <Navbar />
-            <main className="pt-20">{children}</main>
-          </TooltipProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <SpiderCursor />
+              <Navbar />
+              <main className="pt-20">{children}</main>
+            </TooltipProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

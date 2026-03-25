@@ -4,7 +4,7 @@
  * MOCK_MODE=true returns hardcoded fixtures; flip to false to hit real backend.
  */
 
-const MOCK_MODE = true;
+const MOCK_MODE = false;
 
 export type QuestionType = "free-text" | "multiple-choice" | "numeric" | "multi-step" | "latex" | "teachback";
 export type ErrorType = "careless" | "procedural" | "conceptual" | "fatigue";
@@ -136,11 +136,15 @@ export async function getSessionSummary(sessionId: string): Promise<SessionSumma
   return res.json();
 }
 
-export async function sendTelemetry(sessionId: string, payload: object): Promise<void> {
+export async function sendTelemetry(
+  sessionId: string,
+  payload: object
+): Promise<{ interventionType?: string } | void> {
   if (MOCK_MODE) return;
-  await fetch(`/api/session/${sessionId}/telemetry`, {
+  const res = await fetch(`/api/session/${sessionId}/telemetry`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  return res.json();
 }

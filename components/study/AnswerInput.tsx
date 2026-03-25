@@ -7,15 +7,17 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import KaTeXRenderer from "./KaTeXRenderer";
+import TeachbackPrompt from "./TeachbackPrompt";
 import type { Question } from "@/lib/api";
 
 interface AnswerInputProps {
   question: Question;
   onSubmit: (value: string) => void;
   disabled?: boolean;
+  sessionId?: string;
 }
 
-export default function AnswerInput({ question, onSubmit, disabled }: AnswerInputProps) {
+export default function AnswerInput({ question, onSubmit, disabled, sessionId }: AnswerInputProps) {
   const [value, setValue] = useState("");
   const [selectedChoice, setSelectedChoice] = useState("");
   const [stepValues, setStepValues] = useState<string[]>(() => (question.steps ?? []).map(() => ""));
@@ -145,32 +147,13 @@ export default function AnswerInput({ question, onSubmit, disabled }: AnswerInpu
   }
 
   if (question.type === "teachback") {
-    const minChars = 100;
-    const ready = value.length >= minChars;
     return (
-      <div className="space-y-2">
-        <Textarea
-          placeholder="Explain the concept in your own words (min 100 characters)…"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          disabled={disabled}
-          rows={6}
-          className="resize-none"
-        />
-        <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: ready ? "var(--accent-primary)" : "var(--text-tertiary)" }}>
-            {value.length} / {minChars} chars
-          </span>
-          <Button
-            onClick={handleSubmit}
-            disabled={disabled || !ready}
-            className="rounded-full px-5"
-            style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
-          >
-            Submit explanation
-          </Button>
-        </div>
-      </div>
+      <TeachbackPrompt
+        conceptLabel={question.conceptLabel}
+        sessionId={sessionId ?? "unknown"}
+        conceptId={question.conceptId}
+        onSubmit={onSubmit}
+      />
     );
   }
 

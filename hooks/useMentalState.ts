@@ -15,6 +15,7 @@ interface MentalStateMetrics {
 
 export function useMentalState(sessionId: string | null) {
   const [state, setState] = useState<MentalState>("normal");
+  const [intervention, setIntervention] = useState<string | null>(null);
   const metricsRef = useRef<MentalStateMetrics>({
     responseTimes: [],
     recentAccuracy: [],
@@ -45,21 +46,28 @@ export function useMentalState(sessionId: string | null) {
     metricsRef.current.skipCount += 1;
   }, []);
 
+  const dismissIntervention = useCallback(() => {
+    setIntervention(null);
+  }, []);
+
   // Track idle time + send telemetry every 10s
   useEffect(() => {
-    const iv = setInterval(() => {
+    const iv = setInterval(async () => {
       const now = Date.now();
       metricsRef.current.idleMs = now - lastActivityRef.current;
       if (sessionId) {
-        sendTelemetry(sessionId, {
+        const response = await sendTelemetry(sessionId, {
           state,
           metrics: { ...metricsRef.current },
           timestamp: now,
         });
+        if (response?.interventionType) {
+          setIntervention(response.interventionType);
+        }
       }
     }, 10000);
     return () => clearInterval(iv);
   }, [sessionId, state]);
 
-  return { state, recordResponse, recordSkip };
+  return { state, intervention, recordResponse, recordSkip, dismissIntervention };
 }

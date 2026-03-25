@@ -263,18 +263,19 @@ export default function ConceptWeb({ nodes: initialNodes, strands, spiderNodeId,
 
   function handleNodeClick(node: ConceptNode) {
     if (node.state === "locked") {
-      // Highlight prerequisites
+      // Visual feedback: highlight prerequisite nodes
       const prereqs = strands
         .filter((s) => s.to === node.id)
         .map((s) => s.from);
       setPrereqIds(prereqs);
-      setLockedMsg(`Unlock ${prereqs.length > 0 ? "prerequisites first" : "by studying this subject"}.`);
+      setLockedMsg("Study this concept to unlock it.");
       setTimeout(() => { setPrereqIds([]); setLockedMsg(null); }, 3000);
     } else {
       setPrereqIds([]);
       setLockedMsg(null);
-      onNodeClick?.(node);
     }
+    // Always call parent — parent shows concept detail for all nodes
+    onNodeClick?.(node);
   }
 
   return (

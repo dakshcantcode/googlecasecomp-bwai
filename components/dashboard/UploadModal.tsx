@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -9,14 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-
-const STEPS = [
-  "Parsing document structure",
-  "Extracting key concepts",
-  "Building concept graph",
-  "Generating study sessions",
-];
+import { useUserStore } from "@/stores/userStore";
 
 interface UploadModalProps {
   open: boolean;
@@ -24,39 +18,57 @@ interface UploadModalProps {
 }
 
 export default function UploadModal({ open, onClose }: UploadModalProps) {
-  const [phase, setPhase] = useState<"drop" | "processing" | "done">("drop");
-  const [step, setStep] = useState(0);
+  const router = useRouter();
+  const { refreshSubjects } = useUserStore();
+
+  const [phase, setPhase] = useState<"drop" | "processing" | "done" | "error">("drop");
   const [fileName, setFileName] = useState("");
+  const [nodeCount, setNodeCount] = useState(0);
+  const [subjectId, setSubjectId] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function startProcessing(name: string) {
-    setFileName(name);
+  async function handleFile(file: File) {
+    setFileName(file.name);
     setPhase("processing");
-    setStep(0);
 
-    let s = 0;
-    const iv = setInterval(() => {
-      s++;
-      if (s >= STEPS.length) {
-        clearInterval(iv);
-        setStep(STEPS.length);
-        setTimeout(() => setPhase("done"), 600);
-      } else {
-        setStep(s);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/subjects/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Upload failed");
+        setPhase("error");
+        return;
       }
-    }, 900);
-  }
-
-  function handleFile(file: File) {
-    startProcessing(file.name);
+      setNodeCount(data.nodeCount);
+      setSubjectId(data.subjectId);
+      await refreshSubjects();
+      setPhase("done");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Upload failed");
+      setPhase("error");
+    }
   }
 
   function reset() {
     setPhase("drop");
-    setStep(0);
     setFileName("");
+    setNodeCount(0);
+    setSubjectId("");
+    setErrorMsg("");
     onClose();
+  }
+
+  function openWeb() {
+    reset();
+    router.push(`/web/${subjectId}`);
   }
 
   return (
@@ -105,7 +117,7 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
                   ref={inputRef}
                   type="file"
                   className="hidden"
-                  accept=".pdf,.txt,.md,.docx"
+                  accept=".pdf,.txt,.md"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                 />
               </div>
@@ -118,38 +130,20 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="py-4"
+              className="py-8 text-center"
             >
-              <p className="text-sm mb-6 truncate" style={{ color: "var(--text-secondary)" }}>
-                Processing: <strong>{fileName}</strong>
-              </p>
-
-              <Progress value={(step / STEPS.length) * 100} className="mb-6" />
-
-              <div className="space-y-3">
-                {STEPS.map((s, i) => (
-                  <div key={s} className="flex items-center gap-3">
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-                      style={{
-                        background:
-                          i < step ? "var(--accent-primary)" : i === step ? "rgba(212,168,67,0.3)" : "var(--bg-primary)",
-                        color: i < step ? "#1A1A1A" : "var(--text-tertiary)",
-                        border: "1px solid",
-                        borderColor: i <= step ? "var(--accent-primary)" : "var(--border-default)",
-                      }}
-                    >
-                      {i < step ? "✓" : i + 1}
-                    </div>
-                    <span
-                      className="text-sm"
-                      style={{ color: i <= step ? "var(--text-primary)" : "var(--text-tertiary)" }}
-                    >
-                      {s}
-                    </span>
-                  </div>
-                ))}
+              <div className="flex justify-center mb-4">
+                <div
+                  className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+                  style={{ borderColor: "var(--accent-primary)", borderTopColor: "transparent" }}
+                />
               </div>
+              <p className="text-sm truncate" style={{ color: "var(--text-secondary)" }}>
+                Extracting concepts from <strong>{fileName}</strong>…
+              </p>
+              <p className="text-xs mt-2" style={{ color: "var(--text-tertiary)" }}>
+                This may take up to 30 seconds
+              </p>
             </motion.div>
           )}
 
@@ -168,14 +162,34 @@ export default function UploadModal({ open, onClose }: UploadModalProps) {
                 Your web is ready.
               </p>
               <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-                12 concepts extracted and linked.
+                {nodeCount} concept{nodeCount !== 1 ? "s" : ""} extracted and linked.
               </p>
               <Button
-                onClick={reset}
+                onClick={openWeb}
                 className="rounded-full px-6"
                 style={{ background: "var(--accent-primary)", color: "#1A1A1A" }}
               >
                 Open Concept Web
+              </Button>
+            </motion.div>
+          )}
+
+          {phase === "error" && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="py-6 text-center"
+            >
+              <div className="text-4xl mb-4">⚠️</div>
+              <p className="text-sm mb-4 text-red-500">{errorMsg}</p>
+              <Button
+                variant="outline"
+                onClick={reset}
+                className="rounded-full"
+                style={{ borderColor: "var(--border-default)" }}
+              >
+                Try again
               </Button>
             </motion.div>
           )}
